@@ -5,23 +5,23 @@ import { SchoolTable } from "./SchoolTable";
 import { MissionTable } from "./MissionTable";
 import { LeaveTable } from "./LeaveTable";
 export enum UserRole {
-        SYSTEM_ADMIN = "system admin",
-        EMPLOYEE_LECTURER = "Employee/Lecturer",
-        HOD = "HOD",
-        DEAN = "dean",
-        CAMPUS_ADMIN = "campus admin",
-        PRINCIPLE = "principle",
-        VICE_CHANCELLOR = "vice chancelor",
-        HR = "HR"
-    }
+    SYSTEM_ADMIN = "system admin",
+    EMPLOYEE_LECTURER = "Employee/Lecturer",
+    HOD = "HOD",
+    DEAN = "dean",
+    CAMPUS_ADMIN = "campus admin",
+    PRINCIPLE = "principle",
+    VICE_CHANCELLOR = "vice chancelor",
+    HR = "HR"
+}
 @Entity('user_table')
 export class UserTable {
     @PrimaryGeneratedColumn("uuid")
     userId!: string;
 
-    @Column({ nullable: false })
+    @Column({ nullable: true })
     campusId!: string;
-    
+
 
 
     @ManyToOne(() => CampusTable, (campus) => campus.users, { eager: true })
@@ -39,11 +39,11 @@ export class UserTable {
     @Column({ nullable: false })
     password!: string;
 
-    
-    @Column({ 
-        type: "enum", 
-        enum: UserRole, 
-        nullable: false 
+
+    @Column({
+        type: "enum",
+        enum: UserRole,
+        nullable: false
     })
     role!: UserRole;
 
@@ -53,16 +53,19 @@ export class UserTable {
     @Column({ nullable: true })
     depId?: string;
 
-   @ManyToOne(() => DepTable, { eager: true, nullable: true })
+    @ManyToOne(() => DepTable, { eager: true, nullable: true })
     @JoinColumn({ name: "depId" })
     department?: DepTable;
 
-    
-@OneToMany(() => LeaveTable, (leave) => leave.user)
-leaves!: LeaveTable[];
+
+    @OneToMany(() => LeaveTable, (leave) => leave.user)
+    leaves!: LeaveTable[];
 
     @Column({ nullable: true })
     profilePhoto?: string;
+
+    @Column({ nullable: true })
+    signature?: string;
 
     @Column({ nullable: true })
     schoolId?: string;

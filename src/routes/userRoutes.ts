@@ -5,7 +5,7 @@ import { upload } from "../utils/upload";
 
 const router = Router();
 
-router.post("/signup", userController.createUser);
+router.post("/signup", upload.single("signature"), userController.createUser);
 router.post("/login", userController.login);
 router.get("/",
     // authenticate,

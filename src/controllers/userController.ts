@@ -16,9 +16,11 @@ import fs from "fs";
 import path from "path";
 
 class userController {
-    static async createUser(req: Request, res: Response) {
+    static async createUser(req: Request, res: Response): Promise<void> {
         try {
             const { name, email, password, campusId, role, phone, depId, schoolId, profilePhoto } = req.body;
+
+
 
             if (!name) {
                 res.status(400).json({ message: "name is required" });
@@ -31,14 +33,6 @@ class userController {
             if (!password) {
                 res.status(400).json({ message: "password is required" });
                 return;
-
-                // Hash the password before saving
-                const hashedPassword = await bcrypt.hash(password, 10);
-            }
-
-            if (!campusId) {
-                res.status(400).json({ message: "campusId is required" });
-                return;
             }
             if (!role) {
                 res.status(400).json({ message: "role is required" });
@@ -47,18 +41,24 @@ class userController {
 
             const userRepository = AppDataSource.getRepository(UserTable);
 
-            if (await userRepository.findOne({ where: { email } })) {
-                res.status(400).json({ message: "User already exists" });
+            // Check for duplicate user
+            const existingUser = await userRepository.findOne({ where: { email } });
+            if (existingUser) {
+                res.status(409).json({ message: "User already exists" });
                 return;
             }
 
-            const campusRepo = AppDataSource.getRepository(CampusTable);
-            const campus = await campusRepo.findOne({ where: { campusID: campusId } });
-            if (!campus) {
-                res.status(400).json({ message: "Invalid campusId" });
-                return;
+            // Validate campus
+            if (campusId) {
+                const campusRepo = AppDataSource.getRepository(CampusTable);
+                const campus = await campusRepo.findOne({ where: { campusID: campusId } });
+                if (!campus) {
+                    res.status(400).json({ message: "Invalid campusId" });
+                    return;
+                }
             }
 
+            // Validate department
             let department: DepTable | undefined;
             if (depId) {
                 const depRepo = AppDataSource.getRepository(DepTable);
@@ -69,6 +69,7 @@ class userController {
                 }
             }
 
+            // Validate school
             let school: SchoolTable | undefined;
             if (schoolId) {
                 const schoolRepo = AppDataSource.getRepository(SchoolTable);
@@ -78,13 +79,22 @@ class userController {
                     return;
                 }
             }
+            // Handle signature file upload
+            let signature: string | undefined;
+            const backendUrl = process.env.back_end_url || "http://localhost:5000";
+            if (req.file && req.file.filename) {
+                signature = `${backendUrl}/${path.join('uploads', req.file.filename).replace(/\\/g, '/')}`;
+            } else if (req.body.signature) {
+                signature = req.body.signature; // fallback if sent as a link
+            }
+            // Hash the password before saving
+            const hashedPassword = await bcrypt.hash(password, 10);
 
             const user = userRepository.create({
                 name,
                 email,
-                password,
+                password: hashedPassword,
                 campusId,
-                campus,
                 role,
                 phone,
                 depId,
@@ -92,22 +102,29 @@ class userController {
                 schoolId,
                 school,
                 profilePhoto,
+                signature,
             });
 
             await userRepository.save(user);
-            res.status(201).json(user);
-        } catch (error) {
-            res.status(500).json({ message: "Error creating user", error });
+            res.status(201).json({ message: "User created successfully", data: user });
+        } catch (error: any) {
+            res.status(500).json({ message: "Error creating user", error: error.message });
         }
     }
 
-    static async login(req: Request, res: Response, next: NextFunction): Promise<void> {
+    static async login(req: Request, res: Response): Promise<void> {
         try {
             const { email, password } = req.body;
             const userRepository = AppDataSource.getRepository(UserTable);
             const user = await userRepository.findOne({ where: { email } });
 
-            if (!user || user.password !== password) {
+            if (!user) {
+                res.status(401).json({ message: "Invalid email or password" });
+                return;
+            }
+
+            const isMatch = await bcrypt.compare(password, user.password);
+            if (!isMatch) {
                 res.status(401).json({ message: "Invalid email or password" });
                 return;
             }
@@ -263,67 +280,67 @@ class userController {
     }
 
     // Create a mission request
-static async createMissionRequest(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-        const userId = (req as any).user?.userId;
+    static async createMissionRequest(req: Request, res: Response, next: NextFunction): Promise<void> {
+        try {
+            const userId = (req as any).user?.userId;
 
-        const {
-            type,
-            district,
-            destination,
-            startDate,
-            endDate,
-            purpose,
-        } = req.body;
+            const {
+                type,
+                district,
+                destination,
+                startDate,
+                endDate,
+                purpose,
+            } = req.body;
 
-        const invitationLetter = req.file ? req.file.filename : undefined;
+            const invitationLetter = req.file ? req.file.filename : undefined;
 
-        if (
-            !userId || !type || !startDate || !endDate || !purpose ||
-            (type === 'local' && !district) ||
-            (type === 'international' && !destination)
-        ) {
-            res.status(400).json({ message: "Missing required mission fields" });
-            return;
+            if (
+                !userId || !type || !startDate || !endDate || !purpose ||
+                (type === 'local' && !district) ||
+                (type === 'international' && !destination)
+            ) {
+                res.status(400).json({ message: "Missing required mission fields" });
+                return;
+            }
+
+            const userRepository = AppDataSource.getRepository(UserTable);
+            const user = await userRepository.findOne({ where: { userId } });
+
+            if (!user) {
+                res.status(404).json({ message: "User not found" });
+                return;
+            }
+
+            const missionRepo = AppDataSource.getRepository(MissionTable);
+
+            const missionRequest = missionRepo.create({
+                user, // If your MissionTable expects a relation, keep this; otherwise, use userId: user.userId,
+                type,
+                district: type === 'local' ? district : undefined,
+                destination: type === 'international' ? destination : undefined,
+                startDate,
+                endDate,
+                purpose,
+                invitationLetter,
+                createdAt: new Date(),
+                updatedAt: new Date(),
+            });
+
+            await missionRepo.save(missionRequest);
+            res.status(201).json({
+                message: "Mission request created successfully",
+                data: missionRequest,
+            });
+
+        } catch (error: any) {
+            console.error("Mission creation error:", error);
+            res.status(500).json({
+                message: "Error creating mission request",
+                error: error.message,
+            });
         }
-
-        const userRepository = AppDataSource.getRepository(UserTable);
-        const user = await userRepository.findOne({ where: { userId } });
-
-        if (!user) {
-            res.status(404).json({ message: "User not found" });
-            return;
-        }
-
-        const missionRepo = AppDataSource.getRepository(MissionTable);
-
-        const missionRequest = missionRepo.create({
-            user, // If your MissionTable expects a relation, keep this; otherwise, use userId: user.userId,
-            type,
-            district: type === 'local' ? district : undefined,
-            destination: type === 'international' ? destination : undefined,
-            startDate,
-            endDate,
-            purpose,
-            invitationLetter,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-        });
-
-        await missionRepo.save(missionRequest);
-        res.status(201).json({
-            message: "Mission request created successfully",
-            data: missionRequest,
-        });
-
-    } catch (error: any) {
-        console.error("Mission creation error:", error);
-        res.status(500).json({
-            message: "Error creating mission request",
-            error: error.message,
-        });
     }
-}
 
 
 
@@ -553,7 +570,7 @@ static async createMissionRequest(req: Request, res: Response, next: NextFunctio
     static async changeLeaveStatus(req: Request, res: Response, next: NextFunction): Promise<void> {
         try {
             const { leaveId } = req.params;
-            const { status } = req.body;
+            const { status , role } = req.body;
 
             // Only allow specific statuses
             // const validStatuses = ["pending", "approved", "rejected"];
@@ -569,7 +586,11 @@ static async createMissionRequest(req: Request, res: Response, next: NextFunctio
                 res.status(404).json({ message: "Leave request not found" });
                 return;
             }
-
+            if(role !== "system admin" && role !== "hod" && role !== "dean") {
+                res.status(403).json({ message: "You are not authorized to change the leave status" });
+                return;
+            }
+            
             leave.status = status;
             leave.updatedAt = new Date();
 

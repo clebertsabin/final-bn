@@ -5,7 +5,6 @@ import { CorsOptions } from 'cors';
 import userRoutes from "./routes/userRoutes";
 import passport from "passport";
 import session from "express-session";
-import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import authRoutes from "./routes/authRoutes";
 import propertyRoutes from "./routes/propertyRoutes"
 import './config/passport'
@@ -13,6 +12,7 @@ import bookingRoutes from './routes/bookingRoutes'
 import dotenv from "dotenv";
 import leaveRoutes from "./routes/leaveRoutes";
 import missionRoutes from "./routes/missionRoutes";
+import settingRoutes from "./routes/settings";
 dotenv.config();
 const app = express();
 
@@ -29,6 +29,7 @@ app.use(express.json());
 app.use("/user", userRoutes);
 app.use("/leave", leaveRoutes)
 app.use("/mission", missionRoutes)
+app.use("/settings", settingRoutes)
 
 //initialize passport
 app.use(session({
@@ -48,16 +49,19 @@ app.use("/booking", bookingRoutes)
 
 
 AppDataSource.initialize();
+AppDataSource.initialize();
 
+// Serve static files from the "uploads" directory
+import path from "path";
+app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });
 
-
-app.use(cors({
-  origin: "http://localhost:3000", // your frontend
-  credentials: true
-
-}));
+// Remove duplicate or misplaced CORS middleware
+// app.use(cors({
+//   origin: "http://localhost:3000", // your frontend
+//   credentials: true
+// }));
