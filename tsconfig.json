@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "target": "ES6",                    // Set the ECMAScript version
+    "module": "CommonJS",               // CommonJS for Node.js
+    "outDir": "./dist",                 // Output directory for compiled files
+    "rootDir": "./src",                 // Root directory for source files
+    "esModuleInterop": true,            // Allows default imports from CommonJS
+    "skipLibCheck": true,               // Skips type checking of declaration files
+    "forceConsistentCasingInFileNames": true,
+    "strict": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true
+  },
+  "entities": ["../models/*.ts"], 
+  "include": ["src/**/*.ts"],           // Include all TypeScript files inside src
+  "exclude": ["node_modules"]  
+}
