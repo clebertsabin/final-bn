@@ -15,7 +15,7 @@ config();
 export const AppDataSource = new DataSource({
   type: "postgres",
   url: process.env.DATABASE_URL,
-  synchronize: true,
+  synchronize: false,
   logging: false,
   entities: [
     UserTable, CampusTable, SchoolTable,DepTable, MissionTable,LeaveTable
